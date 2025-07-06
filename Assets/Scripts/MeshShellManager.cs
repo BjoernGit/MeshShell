@@ -110,8 +110,8 @@ public class MeshShellAgent
     
     // Debug Settings
     private float arcRadius = 0.5f;
-    private int arcSegments = 8;
-    private float arcAngle = 45f; // Grad
+    private float arcStepAngle = 5f; // Grad pro Schritt
+    private float maxArcAngle = 359f; // Fast ein ganzer Kreis
     
     // Optional visual representation
     private GameObject visualObject;
@@ -155,29 +155,69 @@ public class MeshShellAgent
         Vector3 arcForward = baseRotation * forward;
         
         // Der Mittelpunkt des Kreises muss so liegen, dass der Agent-Punkt auf dem Kreis liegt
-        // Wenn der Arc nach "vorne" gehen soll, liegt der Mittelpunkt "hinten"
         Vector3 circleCenter = Position - arcForward * arcRadius;
         
         Vector3 lastPoint = Position;
+        bool surfaceHit = false;
+        float currentAngle = 0f;
         
-        for (int j = 1; j <= arcSegments; j++)
+        // Suche entlang des Arcs bis eine Oberfläche getroffen wird
+        while (currentAngle < maxArcAngle && !surfaceHit)
         {
-            float t = (float)j / arcSegments;
-            float angle = t * arcAngle * Mathf.Deg2Rad;
+            currentAngle += arcStepAngle;
+            float angleRad = currentAngle * Mathf.Deg2Rad;
             
-            // Berechne Position auf dem Kreis
-            // Start ist bei angle=0 am Agent-Punkt
+            // Berechne nächste Position auf dem Kreis
             Vector3 pointOnCircle = circleCenter 
-                + arcForward * arcRadius * Mathf.Cos(angle)
-                + Normal * arcRadius * Mathf.Sin(angle);
+                + arcForward * arcRadius * Mathf.Cos(angleRad)
+                + Normal * arcRadius * Mathf.Sin(angleRad);
             
-            // Zeichne Linie
-            Debug.DrawLine(lastPoint, pointOnCircle, Color.yellow);
+            // Raycast von letztem Punkt zum nächsten
+            Vector3 direction = pointOnCircle - lastPoint;
+            float distance = direction.magnitude;
+            
+            if (distance > 0.001f) // Vermeidet Division durch 0
+            {
+                RaycastHit hit;
+                if (Physics.Raycast(lastPoint, direction.normalized, out hit, distance))
+                {
+                    // Oberfläche getroffen!
+                    Debug.DrawLine(lastPoint, hit.point, Color.green);
+                    Debug.DrawRay(hit.point, hit.normal * 0.1f, Color.cyan); // Zeige Normale
+                    
+                    // Markiere Treffer mit kleiner Kugel
+                    Debug.DrawLine(hit.point - Vector3.right * 0.02f, hit.point + Vector3.right * 0.02f, Color.red);
+                    Debug.DrawLine(hit.point - Vector3.up * 0.02f, hit.point + Vector3.up * 0.02f, Color.red);
+                    Debug.DrawLine(hit.point - Vector3.forward * 0.02f, hit.point + Vector3.forward * 0.02f, Color.red);
+                    
+                    surfaceHit = true;
+                }
+                else
+                {
+                    // Kein Treffer, zeichne Linie - Farbe ändert sich je nach Fortschritt
+                    float progress = currentAngle / maxArcAngle;
+                    Color lineColor = Color.Lerp(Color.yellow, Color.magenta, progress);
+                    Debug.DrawLine(lastPoint, pointOnCircle, lineColor);
+                }
+            }
+            
             lastPoint = pointOnCircle;
         }
         
+        // Falls keine Oberfläche getroffen wurde nach fast 360°
+        if (!surfaceHit && currentAngle >= maxArcAngle)
+        {
+            // Wahrscheinlich ein Loch im Mesh!
+            Debug.DrawRay(lastPoint, (lastPoint - circleCenter).normalized * 0.2f, Color.magenta);
+            
+            // Zeichne Warnung - fast geschlossener Kreis ohne Treffer
+            Vector3 warnPos = circleCenter + Normal * arcRadius * 0.5f;
+            Debug.DrawLine(warnPos - arcRight * 0.1f, warnPos + arcRight * 0.1f, Color.magenta);
+            Debug.DrawLine(warnPos - arcForward * 0.1f, warnPos + arcForward * 0.1f, Color.magenta);
+        }
+        
         // Optional: Zeichne Hilfslinie zum Kreismittelpunkt
-        Debug.DrawLine(Position, circleCenter, Color.red * 0.3f);
+        Debug.DrawLine(Position, circleCenter, new Color(1f, 0f, 0f, 0.1f));
     }
     
     public void Destroy()
