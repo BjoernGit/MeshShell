@@ -725,10 +725,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 691b77fcaffec0340a643c62b0a83a45, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  agentSettings: {fileID: 11400000, guid: 0448b0bd39b8afe4d8e0b9f159a000ad, type: 2}
   agentVisualPrefab: {fileID: 0}
   agentScale: 0.1
   agentColor: {r: 0, g: 1, b: 1, a: 1}
-  raycastCamera: {fileID: 0}
+  raycastCamera: {fileID: 330585545}
   targetLayers:
     serializedVersion: 2
     m_Bits: 4294967295
